@@ -57,7 +57,7 @@ x−μ
 Melhora a estabilidade sem intervenção do usuário.
 
 # 📦 Instalação
-git clone https://github.com/seu-usuario/mmq-regressor.git
+git clone https://github.com/dudusegovia/mmq-regressor.git
 cd mmq-regressor
 pip install -r requirements.txt
 
