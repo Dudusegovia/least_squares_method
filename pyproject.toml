@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mmq-high-precision"
-version = "0.1.1"
+version = "0.1.2"
 authors = [
   { name="Eduardo Segovia", email="eduardosegovia2309@gmail.com" },
 ]
