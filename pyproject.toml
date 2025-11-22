@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mmq-high-precision"
+version = "0.1.1"
+authors = [
+  { name="Eduardo Segovia", email="eduardosegovia2309@gmail.com" },
+]
+description = "Regressão Polinomial de Alta Precisão via Mínimos Quadrados com mpmath"
+readme = "README.md"
+requires-python = ">=3.7"
+license = { file = "LICENSE" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Intended Audience :: Science/Research",
+]
+keywords = ["least-squares", "polynomial-regression", "numerical-analysis", "mpmath", "high-precision"]
+dependencies = [
+    "numpy",
+    "mpmath",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/dudusegovia/least_squares_method"
+"Bug Tracker" = "https://github.com/dudusegovia/least_squares_method/issues"
