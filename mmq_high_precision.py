@@ -100,7 +100,6 @@ class MMQRegressor:
             return x, y
         
         faltam = pontos_necessarios - qtd_atual
-        # Log opcional para depuração ou aviso ao usuário
         print(f"[MMQRegressor] Aviso: Dados insuficientes. Gerando {faltam} amostras sintéticas via jittering.")
         
         x_novo = list(x)
@@ -113,7 +112,6 @@ class MMQRegressor:
             x_base, y_base = x[idx], y[idx]
             x_fantasma = x_base + epsilon
             
-            # Interpolação linear simples para determinar o Y do ponto sintético
             if idx < qtd_atual - 1:
                 inclinacao = (y[idx+1] - y_base) / (x[idx+1] - x_base)
                 y_fantasma = y_base + inclinacao * epsilon
@@ -161,7 +159,6 @@ class MMQRegressor:
         try:
             solucao_mp = mp.lu_solve(matriz_A, vetor_B)
         except Exception:
-            # Aplica Regularização de Tikhonov (Ridge) na diagonal
             dim = self.grau + 1
             eps = mp.mpf('1e-100')
             for i in range(dim):
@@ -172,7 +169,6 @@ class MMQRegressor:
                 print(f"[MMQRegressor] Erro crítico: Falha na resolução do sistema linear. {e}")
                 return None
 
-        # 5. Desnormalização e Construção do Polinômio Final
         lista_coefs = [val for val in solucao_mp]
         
         A_mp = mp.mpf(1) / mp.mpf(self.std_x)
@@ -180,11 +176,10 @@ class MMQRegressor:
         
         poly_transformacao = [A_mp, B_mp] 
         
-        poly_final = [mp.mpf(0)]
+        poly_final = [lista_coefs[0]] if lista_coefs else [mp.mpf(0)]
         
-        for coef in lista_coefs:
+        for coef in lista_coefs[1:]:
             termo_mult = self._multiplicar_polinomios(poly_final, poly_transformacao)
-            
             poly_final = self._somar_polinomios(termo_mult, [coef])
             
         self.coeficientes = poly_final
@@ -249,18 +244,21 @@ class MMQRegressor:
 
         return funcao_polinomial
     
-    def plotar(self, x=None, a=None, b=None, delta=0.01):
+    def plotar(self, x=None, y=None, a=None, b=None, n=200, delta=0.01):
         """
-        Plota o gráfico do polinômio ajustado.
+        Plota o gráfico do polinômio ajustado e/ou os pontos originais.
         
-        Pode ser usado de duas formas:
-        1. Passando um intervalo [a, b] e um delta.
-        2. Passando uma lista/array de pontos x específicos.
+        Parâmetros:
+        - x, y: Listas/Arrays com os dados originais (pontos discretos).
+        - a, b: Limites do intervalo para visualização do gráfico [a, b].
+        - n: Número de pontos para plotar a função quando a e b não são fornecidos.
+        - delta: Passo para a geração da linha suave do gráfico (usado quando a e b são fornecidos).
         """
         try:
             import matplotlib.pyplot as plt
+            import numpy as np
         except ImportError:
-            print("[Erro] A biblioteca matplotlib não está instalada.")
+            print("[Erro] A biblioteca matplotlib ou numpy não está instalada.")
             return
 
         try:
@@ -269,25 +267,45 @@ class MMQRegressor:
             print(f"[Erro] {e}")
             return
 
-        x_plot = None
-
-        # Lógica de Definição do Eixo X
-        if a is not None and b is not None:
-            x_plot = np.arange(a, b, delta)
-        elif x is not None:
-            x_plot = np.array(sorted(x))
-        else:
-            print("[Erro] Você deve fornecer 'x' (lista) OU os limites 'a' e 'b'.")
-            return
-
-        # Cálculo do Eixo Y
-        y_mpmath = funcao_poly(x_plot)
-        y_plot = [float(val) for val in y_mpmath]
-
-        # Plotagem
         plt.figure(figsize=(10, 6))
-        plt.plot(x_plot, y_plot, color='blue', linewidth=2, label=f'Polinômio (Grau {self.grau})')
+
+        # --- 1. Definição do Domínio para a Curva ---
+        if a is not None and b is not None:
+            # Intervalo definido pelo usuário
+            x_linha = np.arange(a, b, delta)
+        elif x is not None:
+            # Fallback: usa o intervalo dos dados fornecidos
+            x_linha = np.linspace(min(x), max(x), n)
+        else:
+            print("[Aviso] Não foi possível traçar a linha. Forneça 'x' ou o intervalo [a, b].")
+            return
         
+        # --- 2. Plotagem da Curva Polinomial ---
+        y_linha_mpmath = funcao_poly(x_linha)
+        y_linha = [float(val) for val in y_linha_mpmath]
+        plt.plot(x_linha, y_linha, color='blue', linewidth=2, label=f'Ajuste Polinomial (Grau {self.grau})')
+
+        # --- 3. Plotagem dos Pontos Experimentais (Scatter) ---
+        if x is not None and y is not None:
+            if len(x) != len(y):
+                print("[Aviso] 'x' e 'y' têm tamanhos diferentes. Os pontos não serão plotados.")
+            else:
+                if a is not None and b is not None:
+                    x_filtered = [xi for xi, yi in zip(x, y) if a <= xi <= b]
+                    y_filtered = [yi for xi, yi in zip(x, y) if a <= xi <= b]
+                    if x_filtered:
+                        plt.scatter(x_filtered, y_filtered, color='red', zorder=5, s=14, label='Dados Originais')
+                else:
+                    plt.scatter(x, y, color='red', zorder=5, label='Dados Originais')
+
+        # --- 4. Aplicação dos Limites do Gráfico ---
+        if a is not None and b is not None:
+            plt.xlim(a, b)
+            y_min, y_max = min(y_linha), max(y_linha)
+            margem = (y_max - y_min) * 0.1  
+            plt.ylim(y_min - margem, y_max + margem)
+
+        # --- 5. Configurações Finais do Gráfico ---
         plt.title(f"Regressão Polinomial (MMQ) - Grau {self.grau}")
         plt.xlabel("X")
         plt.ylabel("Y")
@@ -542,3 +560,51 @@ class MMQRegressor:
             x = x2
 
         return area
+    def avaliar_ajuste(self, x, y):
+        """
+        Avalia a qualidade do ajuste calculando o coeficiente de determinação R².
+        
+        Parâmetros:
+        - x: Array-like com os valores da variável independente (dados originais).
+        - y: Array-like com os valores reais da variável dependente.
+        
+        Retorna:
+        - R² (Coeficiente de Determinação): valor entre -∞ e 1, onde:
+        * R² = 1: ajuste perfeito (100% da variação explicada)
+        * R² = 0: modelo não melhor que usar a média
+        * R² < 0: modelo pior que usar a média
+        
+        Exceções:
+        - RuntimeError: Se o modelo não foi treinado
+        - ValueError: Se x e y têm tamanhos diferentes
+        """
+        if self.modelo_final is None:
+            raise RuntimeError("Modelo não treinado. Execute .fit(x, y) antes de avaliar.")
+        
+        if len(x) != len(y):
+            raise ValueError("Os vetores x e y devem ter o mesmo tamanho.")
+        
+        mp.dps = self.precision
+        
+        y_pred = self.predict(x)
+        
+        ss_res = mp.mpf(0)
+        for i in range(len(y)):
+            y_real = mp.mpf(y[i])
+            y_previsto = mp.mpf(y_pred[i])
+            ss_res += (y_real - y_previsto) ** 2
+        
+        n = mp.mpf(len(y))
+        y_mean = sum(mp.mpf(yi) for yi in y) / n
+        
+        ss_tot = mp.mpf(0)
+        for yi in y:
+            ss_tot += (mp.mpf(yi) - y_mean) ** 2
+        
+        # Calcula R²
+        if ss_tot == 0:
+            r2 = mp.mpf(1) if ss_res == 0 else mp.mpf(0)
+        else:
+            r2 = mp.mpf(1) - (ss_res / ss_tot)
+        
+        return r2
